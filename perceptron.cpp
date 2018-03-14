@@ -141,8 +141,8 @@ int main() {
     // Read input
     for (int i = 0; i < num_of_pnts; ++i) {
         std::vector<long double> data(dim, 0.0);
-        for (int i = 0; i < dim; ++i) {
-            in >> data[i];
+        for (int j = 0; j < dim; ++j) {
+            in >> data[j];
         }
         int label; in >> label;
         Point p = {data, label};
