@@ -1,92 +1,104 @@
 #include <iostream>
 #include <vector>
-#include <tuple>
 #include <cmath>
 #include <fstream>
-#include <iomanip>
+#include <numeric>
+#include <algorithm>
 
 /**
  * Perceptron Algorithm
- * @author Mohammad_ZD
+ * @author Mohammad Zeineldeen
  */
 
 class Point {
+private:
+    std::vector<float> data; // training data points
+    int label; // +1 or -1
 public:
-    std::vector<long double> data; // training data points
-    int output; // +1 or -1
-
-    Point(std::vector<long double> coordinates, int res) :
-        data(coordinates), output(res) {
-
-        data.push_back(1.0); // extend space for fast convergence
+    Point(std::vector<float> coordinates, int l) :
+      data(coordinates), label(l) {
+        data.push_back(1.f); // extend space for fast convergence
     }
 
     // Returns the norm of this point
-    long double get_norm() {
-        long double sum = 0.0;
-        for (const auto& x: data) {
-            sum += x*x;
-        }
+    float get_norm() const {
+        float sum = std::accumulate(data.begin(), data.end(), 0.f,
+                                [](float& res, const float& x) {
+                                  return res += x * x;
+                                });
         return std::sqrt(sum);
     }
 
     // Normalizes this point
-    void normalize_point(long double max_norm) {
-        for (auto& coor: data) {
-            coor = coor/max_norm;
-        }
+    void normalize_point(const float max_norm) {
+        std::transform(data.begin(),
+                       data.end(),
+                       data.begin(),
+                       std::bind2nd(std::divides<float>(), max_norm));
+    }
+
+    int dims()      const { return data.size(); }
+    int get_label() const { return label; }
+
+    const float& operator[](int idx) const {
+      return data[idx];
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const Point& p) {
+      os << "([";
+      for (int i = 0; i < p.dims(); ++i) {
+        if (i > 0) os << ", ";
+        os << p[i];
+      }
+      os << "], " << p.label << ")";
+      return os;
     }
 };
 
 class Perceptron {
-public:
+private:
     std::vector<Point> points; // vector of training data points
-    std::vector<long double> w; // weight vector
+    std::vector<float> w; // weight vector
     int dim;
-
+public:
     Perceptron(std::vector<Point> pnts) : points(pnts) {
-        dim = pnts[0].data.size();
-        w = std::vector<long double>(dim, 0.0);
+        dim = points[0].dims();
+        w = std::vector<float>(dim);
     }
 
     // Checks if the sum is positive or negative
-    int result(long double sum) {
+    int result(float sum) {
         return std::signbit(sum) ? -1 : +1;
     }
 
     // Returns the sign of the result (-1 or +1)
-    int sgn(Point p) {
-        long double sum = 0.0;
+    int sgn(const Point& p) {
+        float sum = 0.f;
         for (int i = 0; i < dim; ++i) {
-            sum += w[i] * p.data[i];
+            sum += w[i] * p[i];
         }
         return result(sum);
     }
 
     // update the weight vector
-    void update_weight(Point p) {
+    void update_weight(const Point& p) {
         for (int i = 0; i < dim; ++i) {
-            w[i] += p.output * p.data[i];
+            w[i] += p.get_label() * p[i];
         }
     }
 
     // print data set
-    void print_data_set() {
+    void print_data_set() const {
         std::cout << "Data Set (Normalized):\n";
         std::cout << "----------------------\n";
         for (const auto& p: points) {
-            std::cout << "[";
-            for (int i = 0; i < dim; ++i) {
-                if (i > 0) std::cout << ", ";
-                std::cout << p.data[i];
-            }
-            std::cout << "]\n";
+          std::cout << p << std::endl;
         }
-        std::cout << '\n';
+        std::cout << std::endl;
     }
 
     // Prints the weight vector
-    void print_weight() {
+    void print_weight() const {
         std::cout << "[";
         for (int i = 0; i < dim; ++i) {
             if (i > 0) std::cout << ", ";
@@ -103,7 +115,7 @@ public:
         while (iterations <= max_iterations) {
             bool change = false;
             for (const auto& point: points) {
-                if (sgn(point) != point.output) {
+                if (sgn(point) * point.get_label() < 0) {
                     update_weight(point);
                     std::cout << "Iteration " << iterations << ": ";
                     print_weight();
@@ -135,17 +147,15 @@ int main() {
 
     int num_of_pnts, dim; in >> num_of_pnts >> dim;
 
-    long double max_norm = -1;
+    float max_norm = std::numeric_limits<float>::min();
     std::vector<Point> points;
 
     // Read input
     for (int i = 0; i < num_of_pnts; ++i) {
-        std::vector<long double> data(dim, 0.0);
-        for (int j = 0; j < dim; ++j) {
-            in >> data[j];
-        }
+        std::vector<float> data(dim);
+        for (int j = 0; j < dim; ++j) in >> data[j];
         int label; in >> label;
-        Point p = {data, label};
+        Point p {data, label};
         points.push_back(p);
         max_norm = std::max(max_norm, p.get_norm());
     }
@@ -154,11 +164,9 @@ int main() {
         point.normalize_point(max_norm);
     }
 
-    Perceptron perc = {points};
-
+    Perceptron perc {points};
     perc.print_data_set();
     perc.run(1000);
     perc.print_final_res(max_norm);
-
     return 0;
 }
